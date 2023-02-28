@@ -1,240 +1,420 @@
 class UserController {
+  constructor(formId, tBodyId, formUpdateId) {
+    this.formEl = document.getElementById(formId);
+    this.tBodyEl = document.getElementById(tBodyId);
+    this.formUpdate = document.getElementById(formUpdateId);
 
-    constructor(formId, tBodyId, formUpdateId) {
-        this.formEl = document.getElementById(formId);
-        this.tBodyEl = document.getElementById(tBodyId);
-        this.formUpdate = document.getElementById(formUpdateId);
-        this.onSubmit();
-        this.onEditCancel();
+    this.onSubmit();
+    this.onEditCancel();
+    this.selectAll(this.getUsersStorage());
+
+    this.searchByName();
+    this.searchByTypeOfUser();
+    this.searchByBirth();
+    this.nameInSearch = "";
+    this.typeOfUserInSearch = "";
+    this.birthInSearch = "";
+    this.updateCount();
+  }
+
+  selectAll(users) {
+    users.forEach((userData) => {
+      let user = new User();
+
+      user.loadFromJSON(userData);
+
+      this.addLine(user);
+    });
+  }
+
+  searchByBirth() {
+    document
+      .getElementById("inputToSearchByBirth")
+      .addEventListener("input", (e) => {
+        this.birthInSearch = e.target.value;
+        this.filterSearch();
+      });
+  }
+
+  searchByName() {
+    document
+      .getElementById("inputToSearchByName")
+      .addEventListener("input", (e) => {
+        this.nameInSearch = e.target.value;
+        this.filterSearch();
+      });
+  }
+
+  searchByTypeOfUser() {
+    document
+      .getElementById("inputToSearchByType")
+      .addEventListener("input", (e) => {
+        this.typeOfUserInSearch = e.target.value;
+        this.filterSearch();
+      });
+  }
+
+  filterSearch() {
+    let usersFiltered = [];
+
+    switch (this.typeOfUserInSearch) {
+      case "admin":
+        usersFiltered = this.getUsersStorage().filter((user) => user["_admin"]);
+        break;
+      case "notAdmin":
+        usersFiltered = this.getUsersStorage().filter(
+          (user) => !user["_admin"]
+        );
+        break;
+      default:
+        usersFiltered = this.getUsersStorage();
     }
 
-    onSubmit() {
+    usersFiltered = usersFiltered.filter((user) => {
+      const name = user["_name"];
+      const birth = new Date(user["_birth"]);
 
-        this.formEl.addEventListener("submit", event => {
-            event.preventDefault();
+      if (
+        (name.toUpperCase().startsWith(this.nameInSearch.toUpperCase()) ||
+          this.nameInSearch.trim().length <= 0) &&
+        (birth.getTime() >= new Date(this.birthInSearch).getTime() ||
+          this.birthInSearch.trim().length <= 0)
+      ) {
+        return user;
+      }
+    });
 
-            let btn = this.formEl.querySelector("[type=submit]");
+    [...this.tBodyEl.rows].forEach((row) => {
+      this.tBodyEl.removeChild(row);
+    });
+    this.selectAll(usersFiltered);
+  }
 
-            btn.disabled = true;
+  onSubmit() {
+    this.formEl.addEventListener("submit", (event) => {
+      event.preventDefault();
 
-            let values = this.getFormValues(this.formEl);
+      let btn = this.formEl.querySelector("[type=submit]");
 
-            if (values) {
-                this.getPhoto().then(
-                    (content) => {
-                        values.photo = content;
-                        this.addLine(values);
-                        this.formEl.reset();
-                        btn.disabled = false;
-                    }, (error) => {
-                        console.error(error);
-                    }
-                )
-            }
-        })
+      btn.disabled = true;
 
-    }
+      let values = this.getFormValues(this.formEl);
 
-    onEditCancel() {
-        document.querySelector('#box-user-update .btn-cancel').addEventListener('click', e => {
-            this.changeFormVisibility();
-        });
+      values["_id"] = Date.now();
 
-        this.formUpdate.addEventListener("submit", event => {
-            event.preventDefault();
-
-            let btn = this.formUpdate.querySelector("[type=submit]");
-
-            btn.disabled = true;
-
-            let values = this.getFormValues(this.formUpdate);
-
-            const index = this.formUpdate.dataset.trIndex;
-
-            let tr = this.tBodyEl.rows[index];
-
-            tr.dataset.user = JSON.stringify(values);
-
-            tr.innerHTML = `
-        <td>
-          <img src="${values.photo}" alt="User Image" class="img-circle img-sm">
-        </td>
-        <td>${values.name}</td>
-        <td>${values.email}</td>
-        <td>${values.admin ? 'Sim' : 'Não'}</td>
-        <td>${Utils.dateFormat(values.register)}</td>
-        <td>
-          <button type="button" class="btn btn-primary btn-edit btn-xs btn-flat">Editar</button>
-          <button type="button" class="btn btn-danger btn-xs btn-flat">Excluir</button>
-        </td>`
-
-            this.addEventsTr(tr);
-
+      if (values) {
+        this.getPhoto(this.formEl, true).then(
+          (content) => {
+            values.photo = content;
+            this.addLine(values);
+            this.insertInStorage(values);
             this.updateCount();
-        });
+            this.formEl.reset();
+            btn.disabled = false;
+          },
+          (error) => {
+            console.error(error);
+          }
+        );
+      }
+    });
+  }
 
+  onEditCancel() {
+    document
+      .querySelector("#box-user-update .btn-cancel")
+      .addEventListener("click", (e) => {
+        this.changeFormVisibility();
+      });
 
+    this.formUpdate.addEventListener("submit", (event) => {
+      //When the current form is in update mode and has submit event
+      event.preventDefault();
+
+      let updateButton = this.formUpdate.querySelector("[type=submit]");
+
+      updateButton.disabled = true;
+
+      let updatedValues = this.getFormValues(this.formUpdate);
+
+      if (updatedValues) {
+        this.getPhoto(this.formUpdate, false).then(
+          (content) => {
+            updatedValues.photo = content;
+            this.updateUserLine(updatedValues);
+            this.updateCount();
+            this.formUpdate.reset();
+            updateButton.disabled = false;
+            this.changeFormVisibility();
+          },
+          (error) => {
+            console.error(error);
+          }
+        );
+      }
+    });
+  }
+
+  updateUserLine(updatedValues) {
+    const userId = this.formUpdate.dataset.trIndex;
+
+    let userTableLine = this.tBodyEl.rows[userId];
+
+    let oldUserTableLine = JSON.parse(userTableLine.dataset.user);
+
+    let assignResult = Object.assign({}, oldUserTableLine, updatedValues);
+
+    if (!updatedValues.photo) {
+      assignResult._photo = oldUserTableLine._photo;
     }
 
-    changeFormVisibility() {
-        [document.getElementById('box-user-update').style.display, document.getElementById('box-user-create').style.display]
-            =
-            [document.getElementById('box-user-create').style.display, document.getElementById('box-user-update').style.display];
+    let user = new User();
 
-    }
+    user.loadFromJSON(assignResult);
 
+    this.getTableRow(user, userTableLine);
 
-    getPhoto() {
-        return new Promise((resolve, reject) => {
-            let fileReader = new FileReader();
+    this.updateInStorage(assignResult);
+  }
 
-            let filterElements = [...this.formEl.elements].filter(element => {
-                if (element.name === 'photo') {
-                    return element;
-                }
-            });
+  changeFormVisibility() {
+    [
+      document.getElementById("box-user-update").style.display,
+      document.getElementById("box-user-create").style.display,
+    ] = [
+      document.getElementById("box-user-create").style.display,
+      document.getElementById("box-user-update").style.display,
+    ];
+  }
 
-            let filePhoto = filterElements[0].files[0];
+  getPhoto(photoForm, hasToGiveDefaultPhoto) {
+    return new Promise((resolve, reject) => {
+      let fileReader = new FileReader();
 
-            fileReader.onload = () => {
-                resolve(fileReader.result);
-            };
-
-            fileReader.onerror = (e) => {
-                reject(e);
-            }
-
-            if (filePhoto) {
-                fileReader.readAsDataURL(filePhoto);
-            } else {
-                resolve('dist/img/boxed-bg.jpg');
-            }
-        })
-    }
-
-    getFormValues(formEl) {
-
-        let user = {};
-        let isValid = true;
-
-        [...formEl.elements].forEach(function (field, index) {
-
-            if (['name', 'email', 'password'].indexOf(field.name) > -1 && !field.value) {
-                field.parentElement.classList.add('has-error');
-
-                isValid = false;
-            }
-
-
-            if (field.name == "gender") {
-
-                if (field.checked) {
-                    user[field.name] = field.value;
-                }
-
-            } else if (field.name == "admin") {
-                user[field.name] = field.checked;
-            } else {
-                user[field.name] = field.value;
-            }
-
-        })
-
-        if (!isValid) {
-            return isValid;
+      let filterElements = [...photoForm.elements].filter((element) => {
+        if (element.name === "photo") {
+          return element;
         }
+      });
 
-        return new User(
-            user.name,
-            user.gender,
-            user.birth,
-            user.country,
-            user.email,
-            user.password,
-            user.photo,
-            user.admin);
+      let filePhoto = filterElements[0].files[0];
+
+      fileReader.onload = () => {
+        resolve(fileReader.result);
+      };
+
+      fileReader.onerror = (e) => {
+        reject(e);
+      };
+
+      if (filePhoto) {
+        fileReader.readAsDataURL(filePhoto);
+      } else {
+        if (hasToGiveDefaultPhoto) {
+          resolve("dist/img/boxed-bg.jpg");
+        } else {
+          resolve();
+        }
+      }
+    });
+  }
+
+  getFormValues(formEl) {
+    let user = {};
+    let isValid = true;
+
+    [...formEl.elements].forEach(function (field, index) {
+      if (
+        ["name", "email", "password"].indexOf(field.name) > -1 &&
+        !field.value
+      ) {
+        field.parentElement.classList.add("has-error");
+
+        isValid = false;
+      }
+
+      if (field.name == "gender") {
+        if (field.checked) {
+          user[field.name] = field.value;
+        }
+      } else if (field.name == "admin") {
+        user[field.name] = field.checked;
+      } else if (field.name == "date") {
+        const date = new Date(field.value);
+        const day = `${date.getDate() < 10 ? "0" : ""}${date.getDate()}`;
+        const month = `${date.getMonth() + 1 < 10 ? "0" : ""}${
+          date.getMonth() + 1
+        }`;
+        const year = date.getFullYear();
+
+        user[field.name] = `${year}-${month}-${day}`;
+      } else {
+        user[field.name] = field.value;
+      }
+    });
+
+    if (!isValid) {
+      return isValid;
     }
 
-    addLine(dataUser, tBodyId) {
+    return new User(
+      user.name,
+      user.gender,
+      user.birth,
+      user.country,
+      user.email,
+      user.password,
+      user.photo,
+      user.admin
+    );
+  }
 
-        let userLine = document.createElement("tr");
+  getUsersStorage() {
+    let users = [];
 
-        userLine.dataset.user = JSON.stringify(dataUser);
+    if (localStorage.getItem("users")) {
+      users = JSON.parse(localStorage.getItem("users"));
+    }
 
-        userLine.innerHTML = `
+    return users;
+  }
+
+  insertInStorage(dataUser) {
+    let users = this.getUsersStorage();
+
+    users.push(dataUser);
+
+    localStorage.setItem("users", JSON.stringify(users));
+  }
+
+  updateInStorage(updatedUser) {
+    const users = this.getUsersStorage().map((user) => {
+      if (user._id == updatedUser._id) {
+        return updatedUser;
+      } else {
+        return user;
+      }
+    });
+
+    localStorage.setItem("users", JSON.stringify(users));
+  }
+
+  deletingDatainLocalStorage(userToDelete) {
+    const users = this.getUsersStorage()
+      .map((user) => {
+        if (user._id != userToDelete._id) {
+          return user;
+        }
+      })
+      .filter((user) => user != null);
+
+    localStorage.setItem("users", JSON.stringify(users));
+  }
+
+  addLine(dataUser) {
+    let userTableRow = this.getTableRow(dataUser);
+
+    this.tBodyEl.appendChild(userTableRow);
+
+    // this.updateCount();
+  }
+
+  getTableRow(dataUser, userTableRow = null) {
+    if (userTableRow === null) userTableRow = document.createElement("tr");
+
+    userTableRow.dataset.user = JSON.stringify(dataUser);
+
+    userTableRow.innerHTML = `
         <td>
-          <img src="${dataUser.photo}" alt="User Image" class="img-circle img-sm">
+          <img src="${
+            dataUser.photo
+          }" alt="User Image" class="img-circle img-sm">
         </td>
         <td>${dataUser.name}</td>
         <td>${dataUser.email}</td>
-        <td>${dataUser.admin ? 'Sim' : 'Não'}</td>
-        <td>${Utils.dateFormat(dataUser.register)}</td>
+        <td>${dataUser.admin ? "Sim" : "Não"}</td>
+        <td>${Utils.dateBrFormat(dataUser.birth)}</td>
         <td>
           <button type="button" class="btn btn-primary btn-edit btn-xs btn-flat">Editar</button>
-          <button type="button" class="btn btn-danger btn-xs btn-flat">Excluir</button>
-        </td>`
+          <button type="button" class="btn btn-danger btn-delete btn-xs btn-flat">Excluir</button>
+        </td>`;
 
+    this.addEventsTr(userTableRow);
 
+    return userTableRow;
+  }
 
-        this.addEventsTr(userLine);
+  addEventsTr(tr) {
+    tr.querySelector(".btn-edit").addEventListener("click", (e) => {
+      this.changeFormVisibility();
 
-        this.tBodyEl.appendChild(userLine);
+      let jsonUser = JSON.parse(tr.dataset.user);
 
+      this.formUpdate.dataset.trIndex = tr.sectionRowIndex;
+
+      //sectionRowIndex -> get the index from 0
+
+      for (let name in jsonUser) {
+        let field = this.formUpdate.querySelector(
+          "[name=" + name.replace("_", "") + "]"
+        );
+
+        if (field) {
+          switch (field.type) {
+            case "file":
+              continue;
+            case "radio":
+              field = this.formUpdate.querySelector(
+                "[name=" +
+                  name.replace("_", "") +
+                  "][value=" +
+                  jsonUser[name] +
+                  "]"
+              );
+              field.checked = true;
+              break;
+            case "checkbox":
+              field.checked = jsonUser[name];
+              break;
+            case "date":
+              const date = new Date(jsonUser[name]);
+              const day = `${date.getDate() < 10 ? "0" : ""}${date.getDate()}`;
+              const month = `${date.getMonth() + 1 < 10 ? "0" : ""}${
+                date.getMonth() + 1
+              }`;
+              const year = date.getFullYear();
+
+              field.value = `${year}-${month}-${day}`;
+
+              break;
+            default:
+              field.value = jsonUser[name];
+          }
+        }
+      }
+
+      this.formUpdate.querySelector(".photo").src = jsonUser._photo;
+    });
+
+    tr.querySelector(".btn-delete").addEventListener("click", (e) => {
+      if (confirm("Deseja realmente excluir?")) {
+        this.tBodyEl.removeChild(tr);
+
+        const userToDelete = JSON.parse(tr.dataset.user);
+
+        this.deletingDatainLocalStorage(userToDelete);
         this.updateCount();
-    }
+      }
+    });
+  }
 
-    addEventsTr(tr) {
-        tr.querySelector(".btn-edit").addEventListener("click", e => {
-            this.changeFormVisibility();
+  updateCount() {
+    let numberUsers = this.getUsersStorage().length;
+    let numberAdmin = this.getUsersStorage().filter(
+      (user) => user["_admin"]
+    ).length;
 
-            let jsonUser = JSON.parse(tr.dataset.user);
-
-            this.formUpdate.dataset.trIndex = tr.sectionRowIndex;
-
-            for (let name in jsonUser) {
-                let field = this.formUpdate.querySelector("[name=" + name.replace("_", "") + "]");
-
-                if (field) {
-
-                    switch (field.type) {
-                        case 'file':
-                            continue;
-                            break;
-                        case 'radio':
-                            field = this.formUpdate.querySelector("[name=" + name.replace("_", "") + "][value=" + jsonUser[name] + "]");
-                            field.checked = true;
-                            break;
-
-                        case 'checkbox':
-                            field.checked = jsonUser[name];
-                            break;
-                        default:
-                            field.value = jsonUser[name];
-                    }
-
-                }
-
-            }
-
-        });
-    }
-
-    updateCount() {
-
-        let numberUsers = 0;
-        let numberAdmin = 0;
-
-        [...this.tBodyEl.children].forEach(tr => {
-
-            numberUsers++;
-
-            let user = JSON.parse(tr.dataset.user);
-
-            if (user._admin) numberAdmin++;
-        });
-        document.getElementById('numbers-of-users').innerText = `${numberUsers}`;
-        document.getElementById('numbers-of-admins').innerText = `${numberAdmin}`;
-    }
-
-
+    document.getElementById("numbers-of-users").innerText = `${numberUsers}`;
+    document.getElementById("numbers-of-admins").innerText = `${numberAdmin}`;
+  }
 }

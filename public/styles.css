@@ -1,0 +1,12 @@
+#form-search-for div.box-body{
+    display:flex;
+}
+
+#form-search-for div.box-body div.form-group{
+    margin-right:30px;
+}
+
+.search-for-admin{
+    display:flex;
+    gap:20px;
+}
