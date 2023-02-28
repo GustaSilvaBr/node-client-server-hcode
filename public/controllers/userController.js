@@ -182,9 +182,9 @@ class UserController {
       document.getElementById("box-user-update").style.display,
       document.getElementById("box-user-create").style.display,
     ] = [
-      document.getElementById("box-user-create").style.display,
-      document.getElementById("box-user-update").style.display,
-    ];
+        document.getElementById("box-user-create").style.display,
+        document.getElementById("box-user-update").style.display,
+      ];
   }
 
   getPhoto(photoForm, hasToGiveDefaultPhoto) {
@@ -242,9 +242,8 @@ class UserController {
       } else if (field.name == "date") {
         const date = new Date(field.value);
         const day = `${date.getDate() < 10 ? "0" : ""}${date.getDate()}`;
-        const month = `${date.getMonth() + 1 < 10 ? "0" : ""}${
-          date.getMonth() + 1
-        }`;
+        const month = `${date.getMonth() + 1 < 10 ? "0" : ""}${date.getMonth() + 1
+          }`;
         const year = date.getFullYear();
 
         user[field.name] = `${year}-${month}-${day}`;
@@ -277,6 +276,22 @@ class UserController {
     }
 
     return users;
+  }
+
+  getUsersFromRestAPI(callback) {
+    const ajax = new XMLHttpRequest();
+
+    ajax.open('GET', '/users'); //-> start the request to the route declared on this client-server-restify
+
+    ajax.onload = event => {
+      try {
+        callback(JSON.parse(ajax.responseText))
+      } catch (err) {
+        console.err(err);
+      }
+    };
+
+    ajax.send();
   }
 
   insertInStorage(dataUser) {
@@ -326,9 +341,8 @@ class UserController {
 
     userTableRow.innerHTML = `
         <td>
-          <img src="${
-            dataUser.photo
-          }" alt="User Image" class="img-circle img-sm">
+          <img src="${dataUser.photo
+      }" alt="User Image" class="img-circle img-sm">
         </td>
         <td>${dataUser.name}</td>
         <td>${dataUser.email}</td>
@@ -366,10 +380,10 @@ class UserController {
             case "radio":
               field = this.formUpdate.querySelector(
                 "[name=" +
-                  name.replace("_", "") +
-                  "][value=" +
-                  jsonUser[name] +
-                  "]"
+                name.replace("_", "") +
+                "][value=" +
+                jsonUser[name] +
+                "]"
               );
               field.checked = true;
               break;
@@ -379,9 +393,8 @@ class UserController {
             case "date":
               const date = new Date(jsonUser[name]);
               const day = `${date.getDate() < 10 ? "0" : ""}${date.getDate()}`;
-              const month = `${date.getMonth() + 1 < 10 ? "0" : ""}${
-                date.getMonth() + 1
-              }`;
+              const month = `${date.getMonth() + 1 < 10 ? "0" : ""}${date.getMonth() + 1
+                }`;
               const year = date.getFullYear();
 
               field.value = `${year}-${month}-${day}`;
