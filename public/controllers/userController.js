@@ -8,9 +8,6 @@ class UserController {
     this.onEditCancel();
     this.onLoad();
 
-    // this.searchByName();
-    // this.searchByTypeOfUser();
-    // this.searchByBirth();
     this.nameInSearch = "";
     this.typeOfUserInSearch = "";
     this.birthInSearch = "";
