@@ -291,19 +291,11 @@ class UserController {
   }
 
   getUsersFromRestAPI(callback) {
-    const ajax = new XMLHttpRequest();
-
-    ajax.open('GET', '/users'); //-> start the request to the route declared on this client-server-restify
-
-    ajax.onload = event => {
-      try {
-        callback(JSON.parse(ajax.responseText))
-      } catch (err) {
-        console.error(err);
-      }
-    };
-
-    ajax.send();
+    HttpRequest.get('/users').then((response) => {
+      callback(response)
+    }).catch((err) => {
+      console.error(err);
+    });
   }
 
   insertInStorage(dataUser) {
