@@ -4,7 +4,7 @@ const assert = require('assert');
 var express = require('express');
 var router = express.Router();
 
-const serverToRequest = 'http://localhost:4000';
+const serverToRequest = 'http://127.0.0.1:4000';
 
 const client = restify.createJsonClient({
   url: serverToRequest
