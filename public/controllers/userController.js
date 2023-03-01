@@ -6,15 +6,21 @@ class UserController {
 
     this.onSubmit();
     this.onEditCancel();
-    this.selectAll(this.getUsersStorage());
+    this.onLoad();
 
-    this.searchByName();
-    this.searchByTypeOfUser();
-    this.searchByBirth();
+    // this.searchByName();
+    // this.searchByTypeOfUser();
+    // this.searchByBirth();
     this.nameInSearch = "";
     this.typeOfUserInSearch = "";
     this.birthInSearch = "";
     this.updateCount();
+  }
+
+  onLoad() {
+    window.addEventListener("DOMContentLoaded", () => {
+      this.handleFilterSearch();
+    });
   }
 
   selectAll(users) {
@@ -32,7 +38,7 @@ class UserController {
       .getElementById("inputToSearchByBirth")
       .addEventListener("input", (e) => {
         this.birthInSearch = e.target.value;
-        this.filterSearch();
+        this.handleFilterSearch();
       });
   }
 
@@ -41,7 +47,7 @@ class UserController {
       .getElementById("inputToSearchByName")
       .addEventListener("input", (e) => {
         this.nameInSearch = e.target.value;
-        this.filterSearch();
+        this.handleFilterSearch();
       });
   }
 
@@ -50,24 +56,30 @@ class UserController {
       .getElementById("inputToSearchByType")
       .addEventListener("input", (e) => {
         this.typeOfUserInSearch = e.target.value;
-        this.filterSearch();
+        this.handleFilterSearch();
       });
   }
 
-  filterSearch() {
+  handleFilterSearch() {
+    this.getUsersFromRestAPI((response) => {
+      this.filterSearch(response.users);
+    })
+  }
+
+  filterSearch(users) {
     let usersFiltered = [];
 
     switch (this.typeOfUserInSearch) {
       case "admin":
-        usersFiltered = this.getUsersStorage().filter((user) => user["_admin"]);
+        usersFiltered = users.filter((user) => user["_admin"]);
         break;
       case "notAdmin":
-        usersFiltered = this.getUsersStorage().filter(
+        usersFiltered = users.filter(
           (user) => !user["_admin"]
         );
         break;
       default:
-        usersFiltered = this.getUsersStorage();
+        usersFiltered = users;
     }
 
     usersFiltered = usersFiltered.filter((user) => {
@@ -287,7 +299,7 @@ class UserController {
       try {
         callback(JSON.parse(ajax.responseText))
       } catch (err) {
-        console.err(err);
+        console.error(err);
       }
     };
 
