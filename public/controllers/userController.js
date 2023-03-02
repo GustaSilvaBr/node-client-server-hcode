@@ -117,8 +117,7 @@ class UserController {
             values.photo = content;
 
             this.insertInRestify(values).then((response) => {
-              this.addLine(values);
-              this.updateCount();
+              this.handleFilterSearch();
             }).catch((err) => {
               console.error(err);
             })
@@ -162,9 +161,7 @@ class UserController {
             const userUpdated = this.getUserUpdated(updatedValues);
 
             this.updateInRestify(userUpdated).then((response) => {
-
-              this.updateUserTableRow(userUpdated);
-              this.updateCount();
+              this.handleFilterSearch();
             })
 
           },
@@ -313,8 +310,6 @@ class UserController {
 
   insertInRestify(dataUser) {
 
-    console.log(dataUser);
-
     return new Promise((resolve, reject) => {
       HttpRequest.post('/users', dataUser).then((response) => {
         resolve(response);
@@ -338,16 +333,14 @@ class UserController {
 
   }
 
-  deletingDatainLocalStorage(userToDelete) {
-    const users = this.getUsersStorage()
-      .map((user) => {
-        if (user._id != userToDelete._id) {
-          return user;
-        }
-      })
-      .filter((user) => user != null);
+  deletingDataInLocalStorage(userToDelete) {
 
-    localStorage.setItem("users", JSON.stringify(users));
+    HttpRequest.delete(`/users/${userToDelete._id}`).then((response) => {
+      this.handleFilterSearch();
+    }).catch((err) => {
+      console.error(err);
+    });
+
   }
 
   addLine(dataUser) {
@@ -459,7 +452,7 @@ class UserController {
 
         const userToDelete = JSON.parse(tr.dataset.user);
 
-        this.deletingDatainLocalStorage(userToDelete);
+        this.deletingDataInLocalStorage(userToDelete);
         this.updateCount();
       }
     });
