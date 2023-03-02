@@ -115,16 +115,24 @@ class UserController {
         this.getPhoto(this.formEl, true).then(
           (content) => {
             values.photo = content;
-            this.addLine(values);
-            this.insertInStorage(values);
-            this.updateCount();
-            this.formEl.reset();
-            btn.disabled = false;
+
+            this.insertInRestify(values).then((response) => {
+              this.addLine(values);
+              this.updateCount();
+            }).catch((err) => {
+              console.error(err);
+            })
+
           },
           (error) => {
             console.error(error);
           }
-        );
+        ).catch((err) => {
+          console.error(err);
+        }).finally(() => {
+          this.formEl.reset();
+          btn.disabled = false;
+        });
       }
     });
   }
@@ -144,46 +152,54 @@ class UserController {
 
       updateButton.disabled = true;
 
-      let updatedValues = this.getFormValues(this.formUpdate);
+      const updatedValues = this.getFormValues(this.formUpdate);
 
       if (updatedValues) {
         this.getPhoto(this.formUpdate, false).then(
           (content) => {
             updatedValues.photo = content;
-            this.updateUserLine(updatedValues);
-            this.updateCount();
-            this.formUpdate.reset();
-            updateButton.disabled = false;
-            this.changeFormVisibility();
+
+            const userUpdated = this.getUserUpdated(updatedValues);
+
+            this.updateInRestify(userUpdated).then((response) => {
+
+              this.updateUserTableRow(userUpdated);
+              this.updateCount();
+            })
+
           },
           (error) => {
             console.error(error);
           }
-        );
+        ).catch((err) => {
+          console.error(err);
+        }).finally(() => {
+          this.formUpdate.reset();
+          updateButton.disabled = false;
+          this.changeFormVisibility();
+        });
       }
     });
   }
 
-  updateUserLine(updatedValues) {
+  getUserUpdated(updatedValues) {
     const userId = this.formUpdate.dataset.trIndex;
 
-    let userTableLine = this.tBodyEl.rows[userId];
+    const oldUserTableLine = this.tBodyEl.rows[userId];
 
-    let oldUserTableLine = JSON.parse(userTableLine.dataset.user);
+    const oldUserObjectInLine = JSON.parse(oldUserTableLine.dataset.user);
 
-    let assignResult = Object.assign({}, oldUserTableLine, updatedValues);
+    const assignResult = Object.assign({}, oldUserObjectInLine, updatedValues);
 
     if (!updatedValues.photo) {
-      assignResult._photo = oldUserTableLine._photo;
+      assignResult._photo = oldUserObjectInLine._photo;
     }
 
-    let user = new User();
+    const newUser = new User();
 
-    user.loadFromJSON(assignResult);
+    newUser.loadFromJSON(assignResult);
 
-    this.getTableRow(user, userTableLine);
-
-    this.updateInStorage(assignResult);
+    return newUser;
   }
 
   changeFormVisibility() {
@@ -295,24 +311,31 @@ class UserController {
     });
   }
 
-  insertInStorage(dataUser) {
-    let users = this.getUsersStorage();
+  insertInRestify(dataUser) {
 
-    users.push(dataUser);
+    console.log(dataUser);
 
-    localStorage.setItem("users", JSON.stringify(users));
-  }
+    return new Promise((resolve, reject) => {
+      HttpRequest.post('/users', dataUser).then((response) => {
+        resolve(response);
+      }).catch((err) => {
+        reject(err);
+      })
 
-  updateInStorage(updatedUser) {
-    const users = this.getUsersStorage().map((user) => {
-      if (user._id == updatedUser._id) {
-        return updatedUser;
-      } else {
-        return user;
-      }
     });
 
-    localStorage.setItem("users", JSON.stringify(users));
+  }
+
+  updateInRestify(updatedUser) {
+
+    return new Promise((resolve, reject) => {
+      HttpRequest.put(`/users/${updatedUser._id}`, updatedUser).then((response) => {
+        resolve(response);
+      }).catch((err) => {
+        reject(err);
+      });
+    });
+
   }
 
   deletingDatainLocalStorage(userToDelete) {
@@ -328,35 +351,57 @@ class UserController {
   }
 
   addLine(dataUser) {
-    let userTableRow = this.getTableRow(dataUser);
+    const newUserTableRow = this.getUserTableRow(dataUser);
 
-    this.tBodyEl.appendChild(userTableRow);
-
-    // this.updateCount();
+    this.tBodyEl.appendChild(newUserTableRow);
   }
 
-  getTableRow(dataUser, userTableRow = null) {
-    if (userTableRow === null) userTableRow = document.createElement("tr");
+  updateUserTableRow(user) {
+    const userId = this.formUpdate.dataset.trIndex;
 
-    userTableRow.dataset.user = JSON.stringify(dataUser);
+    const tableRow = this.tBodyEl.rows[userId];
 
-    userTableRow.innerHTML = `
+    tableRow.dataset.user = JSON.stringify(user);
+
+    tableRow.innerHTML = `
         <td>
-          <img src="${dataUser.photo
+          <img src="${user.photo
       }" alt="User Image" class="img-circle img-sm">
         </td>
-        <td>${dataUser.name}</td>
-        <td>${dataUser.email}</td>
-        <td>${dataUser.admin ? "Sim" : "Não"}</td>
-        <td>${Utils.dateBrFormat(dataUser.birth)}</td>
+        <td>${user.name}</td>
+        <td>${user.email}</td>
+        <td>${user.admin ? "Sim" : "Não"}</td>
+        <td>${Utils.dateBrFormat(user.birth)}</td>
         <td>
           <button type="button" class="btn btn-primary btn-edit btn-xs btn-flat">Editar</button>
           <button type="button" class="btn btn-danger btn-delete btn-xs btn-flat">Excluir</button>
         </td>`;
 
-    this.addEventsTr(userTableRow);
+    this.addEventsTr(tableRow);
+  }
 
-    return userTableRow;
+  getUserTableRow(user) {
+    const tableRow = document.createElement("tr");
+
+    tableRow.dataset.user = JSON.stringify(user);
+
+    tableRow.innerHTML = `
+        <td>
+          <img src="${user.photo
+      }" alt="User Image" class="img-circle img-sm">
+        </td>
+        <td>${user.name}</td>
+        <td>${user.email}</td>
+        <td>${user.admin ? "Sim" : "Não"}</td>
+        <td>${Utils.dateBrFormat(user.birth)}</td>
+        <td>
+          <button type="button" class="btn btn-primary btn-edit btn-xs btn-flat">Editar</button>
+          <button type="button" class="btn btn-danger btn-delete btn-xs btn-flat">Excluir</button>
+        </td>`;
+
+    this.addEventsTr(tableRow);
+
+    return tableRow;
   }
 
   addEventsTr(tr) {
@@ -406,8 +451,6 @@ class UserController {
           }
         }
       }
-
-      this.formUpdate.querySelector(".photo").src = jsonUser._photo;
     });
 
     tr.querySelector(".btn-delete").addEventListener("click", (e) => {

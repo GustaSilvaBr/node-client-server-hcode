@@ -64,10 +64,10 @@ router.delete("/:id", function (requestToRestify, responseFromRestify, next) {
 });
 
 
-router.post("/", function(requestToRestify, responseFromRestify, next){
-
-  client.post('/users', requestToRestify.body, 
-    function (err, requestToRestAPI, responseFromRestAPI, obj){
+router.post("/", function (requestToRestify, responseFromRestify, next) {
+  console.log('Response: ', requestToRestify.body);
+  client.post('/users', requestToRestify.body,
+    function (err, requestToRestAPI, responseFromRestAPI, obj) {
       assert.ifError(err);
 
       responseFromRestify.json(obj);

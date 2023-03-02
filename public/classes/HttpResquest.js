@@ -4,6 +4,7 @@ class HttpRequest {
         return HttpRequest.request('GET', url, params);
     }
     static post(url, params = {}) {
+        console.log(params);
         return HttpRequest.request('POST', url, params);
     }
     static put(url, params = {}) {
@@ -32,7 +33,9 @@ class HttpRequest {
                 }
             }
 
-            ajax.send();
+            ajax.setRequestHeader('Content-Type', 'application/json');
+
+            ajax.send(JSON.stringify(params));
         })
 
 
